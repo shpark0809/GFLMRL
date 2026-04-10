@@ -1,15 +1,13 @@
+###############################################
+# Sample Data generation Code 
+# under the GFLMRL model 
+###############################################
 
 library(tidyverse)
-library(gmrl)
-library(fda) # functional data analysis for basis, spline
-library(splines2)
  
-
-
 #################################
 # Functional covariate generation 
 #################################
-
 simBX <- function(t, v, nk, type){
   
   # t: Interval of integral (compact space \mathcal{S})
@@ -113,7 +111,4 @@ simudata = function(n, # Sample size
   lst = list(dat = dat, psi0 = fc$B0)
   return(lst)
 }
-
-
-
  
