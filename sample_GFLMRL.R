@@ -46,9 +46,9 @@ dt = sim_set$dat # Data generation
 psi0 = sim_set$psi0 # True beta(s) function -> Functional coefficient
 mean(dt$delta)
 
-################
-# Fit the GFLMRL
-################
+##########################
+# Part 1: Fit the GFLMRL
+##########################
 fit = fn_gflmrl(data=dt, norder=4, t_Interval=t_Interval, model = model, type = type)
 res_est = fit$est_all
   
@@ -56,18 +56,69 @@ est_alpha = res_est[1:2]    # \hat \alpha
 est_beta = res_est[-c(1:2)] # \hat \beta
  
   
-####################### 
-# Bootstrapping for SE  
-####################### 
+################################# 
+# Part 2: Bootstrapping for SE  
+################################# 
 boot_fit = boot_se_ci_paral(B=B, data=dt, t_Interval=t_Interval,
                             model = model, norder = 4, type = type) # Parallel in Mac
 
 se_alp = boot_fit$se_alp
 se_beta = boot_fit$se_beta
 
-########################
-# Hypothesis testings #
-########################
+
+######################################################################
+# Part 3: Likelihood + Cross-validation
+# to choose the optimal g() and K
+# This is under the model = exp.
+# To jointly compare the exp and add link,
+# perform the following CV with add link, and then compare the values 
+######################################################################
+seed = 1
+df_tune = seq(2,9,by=1)  # Grid for the number of basis functions 
+
+set.seed(seed)
+n = nrow(dt)
+cv_num = round(seq.int(1,n, length.out = 6))
+randsam = sample(1:n, n)
+randsam_split = list()
+for (kk in 1:5){
+  randsam_split[[kk]] = randsam[cv_num[kk]: (cv_num[kk+1]-1)]
+}
+
+# Choose the tuning param (nbasis func)
+df_loglik = df_loglik_sd = loglik_all = NULL 
+res_all = NULL
+
+for (dd in 1:length(df_tune)){
+  
+  df = df_tune[dd]
+  df_score = NULL
+  lik_ss = aic_ss = bic_ss = NULL
+  
+  for (cvi in 1:5){
+    testi = randsam_split[[cvi]]; traini = setdiff(1:nrow(dt), testi)
+    dt_train = dt[traini,] ; dt_test = dt[testi,]
+    loglik = fn_loglik_cv(train_data = dt_train,  test_data = dt_test, 
+                          df=df, model=model)  # log-likelihood at df = df
+    lik_ss = c(lik_ss, loglik)
+  }
+  
+  loglik_all = rbind(loglik_all, c(df,lik_ss))   
+  df_loglik = c(df_loglik, mean(lik_ss))
+  df_loglik_sd = c(df_loglik_sd, sd(lik_ss))
+  
+  print('--------------------------')
+  print(Sys.time())
+  print(paste0('DF=', df, '_Lik=', round(mean(lik_ss),3), '_sd=', round(sd(lik_ss),3)))
+} 
+
+df_tune[which.max(df_loglik)] # The optimal number of K 
+ 
+
+
+##################################
+# Part 4: Hypothesis testings #
+##################################
 
 # 1. Homogeneity H0: \beta(s) = c
 ht_homo = func_testing_constant(data=dt, t_int = t_Interval,
